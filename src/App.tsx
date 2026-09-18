@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Menu, Search, ShoppingBag, ArrowLeft, X, Plus, Minus, Trash2, Check, Tag, Sparkles, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
-import { products, Product, CATEGORIES, Category } from './data';
+import { 
+  Menu, Search, ShoppingBag, ArrowLeft, X, Plus, Minus, Trash2, 
+  Check, Tag, Sparkles, ShieldCheck, ChevronLeft, ChevronRight, 
+  ArrowRight, Gem, Truck, Shield 
+} from 'lucide-react';
+import { products, Product, CATEGORIES, Category, getCollectionsWithMeta, CollectionItem } from './data';
 import logoImg from '../assets/logo.jpg';
+import bouquet1 from '../assets/images/bouquet1.jpeg';
+import bouquet2 from '../assets/images/bouquet2.jpeg';
+import bouquet3 from '../assets/images/bouquet3.jpeg';
+import bouquet4 from '../assets/images/bouquet4.jpeg';
 
 interface CartItem {
   product: Product;
@@ -224,13 +232,17 @@ function ProductDetailView({
                   <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
                   <span>Handcrafted by master jewelers</span>
                 </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
+                  <span>No returns policy</span>
+                </li>
               </ul>
             </div>
             
             <div className="py-5">
-              <h3 className="font-serif text-lg text-primary font-bold mb-2">Shipping & Guarantee</h3>
+              <h3 className="font-serif text-lg text-primary font-bold mb-2">Shipping & Packaging</h3>
               <p className="text-xs text-on-surface-variant leading-relaxed">
-                Complimentary insured door-to-door delivery. Every order comes packaged in a luxury signature velvet box with an authenticity certificate.
+                Insured delivery nationwide. Add 3 or more items to order as a luxury bouquet arrangement. Every order is packaged securely with an authenticity certificate.
               </p>
             </div>
           </div>
@@ -256,198 +268,453 @@ function HomeCatalogView({
   addToCart: (product: Product, quantityToAdd?: number) => void;
 }) {
   const navigate = useNavigate();
+  const collections = getCollectionsWithMeta();
 
-  const heroImage = (products[0]?.images && products[0].images[0]) || products[0]?.image;
+  const isSearchActive = searchQuery.trim().length > 0;
+  const isViewingSpecificCollection = selectedCategory !== 'All' && !isSearchActive;
+
+  // 4 bouquet images for banner
+  const bannerSlides = [
+    { src: bouquet1, title: 'Pastel Blue Jewelry Gift Box', tag: 'Travel Case' },
+    { src: bouquet2, title: 'Anniversary Bouquet', tag: 'Hand Bouquet' },
+    { src: bouquet3, title: 'Red Velvet Jewelry Gift Box', tag: 'Velvet Case' },
+    { src: bouquet4, title: 'Champagne Wrap Bouquet', tag: 'Floral Wrap' },
+  ];
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % bannerSlides.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [bannerSlides.length]);
 
   return (
     <main className="flex-grow flex flex-col">
-      {/* Hero Section */}
-      <section className="relative w-full h-[60vh] min-h-[440px] flex items-center justify-center overflow-hidden bg-surface-dim">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src={heroImage} 
-            alt="Raya Jewels Fine Collection" 
-            className="w-full h-full object-cover object-center opacity-75 scale-105 transition-transform duration-1000"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface-variant/40 to-primary/30"></div>
-        </div>
-        
-        <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-3xl mx-auto mt-4">
-          {/* Luxury Grey Badge */}
-          <div className="inline-flex items-center gap-2 bg-[#4A403D]/90 backdrop-blur-md text-[#F9F8F6] px-3.5 py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.15em] mb-4 shadow-md rounded-full border border-white/10">
-            <Tag className="w-3.5 h-3.5 text-secondary" />
-            <span>FLAT 50% OFF EXCLUSIVE COLLECTION</span>
-          </div>
-          
-          <h1 className="font-serif text-3xl sm:text-5xl md:text-6xl text-primary mb-4 leading-tight font-bold drop-shadow-sm">
-            Quiet Elegance,<br/>Defined.
-          </h1>
-          
-          <p className="text-sm md:text-lg text-on-surface-variant font-medium mb-6 max-w-xl leading-relaxed">
-            Discover our handcrafted jewelry collection. Minimalist gold and anti-tarnish pieces designed for daily elegance.
-          </p>
-          
-          <div className="flex flex-wrap gap-4 justify-center">
-            <button 
-              onClick={() => {
-                const el = document.getElementById('catalog-section');
-                el?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="bg-primary text-white text-xs font-bold uppercase tracking-[0.15em] py-3.5 px-8 shadow-lg hover:bg-primary/90 active:scale-98 transition-all rounded-xl cursor-pointer border border-primary"
-            >
-              Shop Collection
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Category Filter Pills & Product Catalog */}
-      <section id="catalog-section" className="py-10 sm:py-16 px-3 sm:px-8 md:px-12 max-w-7xl mx-auto w-full">
-        {/* Category Navigation Bar */}
-        <div className="flex flex-col items-center mb-8 sm:mb-12 text-center">
-          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary mb-1.5">Curated Luxury</span>
-          <h2 className="font-serif text-2xl sm:text-4xl text-primary mb-5 font-bold">
-            {selectedCategory === 'All' ? 'Complete Collection' : `${selectedCategory} Collection`}
-          </h2>
-          
-          {/* Category Pills */}
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-3">
-            {CATEGORIES.map(cat => {
-              const count = cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
-              const isActive = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3.5 sm:px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all rounded-full flex items-center gap-1.5 border cursor-pointer ${
-                    isActive
-                      ? 'bg-primary text-white border-primary shadow-md'
-                      : 'bg-surface-container text-on-surface-variant border-outline-variant/40 hover:bg-surface-dim hover:text-primary'
-                  }`}
-                >
-                  <span>{cat === 'All' ? 'All Pieces' : cat}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          {searchQuery && (
-            <p className="text-xs text-on-surface-variant mt-2">
-              Showing results for &ldquo;<span className="font-semibold">{searchQuery}</span>&rdquo; ({filteredProducts.length} items found)
-            </p>
-          )}
-        </div>
-
-        {/* Empty Search / Filter State */}
-        {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 bg-surface-container/50 border border-outline-variant/30 rounded-2xl max-w-md mx-auto">
-            <p className="text-sm font-semibold text-primary mb-4">No products found matching your filter.</p>
+      {/* 1. SEARCH RESULTS VIEW (When searching) */}
+      {isSearchActive ? (
+        <section className="py-8 sm:py-12 px-4 sm:px-8 md:px-12 max-w-7xl mx-auto w-full">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-outline-variant/30">
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary mb-1 block">Search Results</span>
+              <h2 className="font-serif text-2xl sm:text-3xl text-primary font-bold">
+                Results for &ldquo;{searchQuery}&rdquo;
+              </h2>
+              <p className="text-xs text-on-surface-variant mt-1">
+                Found {filteredProducts.length} matching piece{filteredProducts.length === 1 ? '' : 's'}
+              </p>
+            </div>
             <button
               onClick={() => {
-                setSelectedCategory('All');
                 setSearchQuery('');
+                setSelectedCategory('All');
               }}
-              className="bg-primary text-white text-xs font-bold uppercase tracking-wider py-3 px-7 rounded-xl cursor-pointer hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary hover:text-secondary py-2 px-4 rounded-full border border-outline-variant/50 hover:border-primary transition-all cursor-pointer bg-surface-container"
             >
-              View All Products
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Collections</span>
             </button>
           </div>
-        ) : (
-          /* Product Grid - 2 COLUMNS ON MOBILE, 3 ON DESKTOP */
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-6 sm:gap-x-8 sm:gap-y-12">
-            {filteredProducts.map((product) => {
-              const coverImg = (product.images && product.images[0]) || product.image;
-              return (
-                <div 
-                  key={product.id} 
-                  className="group flex flex-col bg-surface border border-outline-variant/30 hover:border-primary/40 transition-all duration-300 shadow-xs hover:shadow-xl rounded-xl sm:rounded-2xl overflow-hidden"
-                >
-                  {/* Image Container */}
-                  <div 
-                    className="w-full aspect-[4/5] bg-surface-container relative overflow-hidden cursor-pointer"
-                    onClick={() => navigate(`/product/${product.id}`)}
+
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-16 bg-surface-container/50 border border-outline-variant/30 rounded-2xl max-w-md mx-auto">
+              <Search className="w-10 h-10 text-outline-variant mx-auto mb-3" />
+              <p className="font-serif text-xl font-bold text-primary mb-2">No matching pieces found</p>
+              <p className="text-xs text-on-surface-variant mb-6 px-4">
+                We couldn&rsquo;t find anything matching &ldquo;{searchQuery}&rdquo;. Try another term or explore our collections.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('All');
+                }}
+                className="bg-primary text-white text-xs font-bold uppercase tracking-wider py-3 px-7 rounded-xl cursor-pointer hover:bg-primary/90 transition-colors"
+              >
+                View All Collections
+              </button>
+            </div>
+          ) : (
+            <ProductGrid 
+              products={filteredProducts} 
+              addToCart={addToCart} 
+              navigate={navigate} 
+            />
+          )}
+        </section>
+      ) : isViewingSpecificCollection ? (
+        /* 2. SPECIFIC COLLECTION VIEW (When a collection is selected) */
+        <section className="py-6 sm:py-10 px-3 sm:px-8 md:px-12 max-w-7xl mx-auto w-full">
+          {/* Collection Header & Breadcrumb */}
+          <div className="flex flex-col mb-6 sm:mb-8">
+            <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
+              <button
+                onClick={() => {
+                  setSelectedCategory('All');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>All Collections</span>
+              </button>
+
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#4A403D] bg-[#4A403D]/10 px-3 py-1 rounded-full border border-[#4A403D]/20">
+                50% OFF Applied
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 pb-4 border-b border-outline-variant/30">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-1 block">
+                  Fine Jewelry
+                </span>
+                <h1 className="font-serif text-2xl sm:text-4xl text-primary font-bold tracking-tight">
+                  {selectedCategory} Collection
+                </h1>
+                <p className="text-xs sm:text-sm text-on-surface-variant mt-1 max-w-2xl leading-relaxed">
+                  {collections.find(c => c.category === selectedCategory)?.description || 
+                   'Handcrafted anti-tarnish, waterproof and hypoallergenic luxury designs.'}
+                </p>
+              </div>
+
+              <div className="text-xs text-outline font-semibold uppercase tracking-wider whitespace-nowrap">
+                {filteredProducts.length} Piece{filteredProducts.length === 1 ? '' : 's'}
+              </div>
+            </div>
+
+            {/* Quick Switch Pills between collections */}
+            <div className="flex flex-wrap gap-2 pt-4">
+              {CATEGORIES.map(cat => {
+                const count = cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
+                const isActive = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setSelectedCategory(cat);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`px-3 sm:px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-all rounded-full flex items-center gap-1.5 border cursor-pointer ${
+                      isActive
+                        ? 'bg-primary text-white border-primary shadow-sm'
+                        : 'bg-surface-container text-on-surface-variant border-outline-variant/40 hover:bg-surface-dim hover:text-primary'
+                    }`}
                   >
-                    <img 
-                      src={coverImg} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-                    />
-                    
-                    {/* Luxury Grey Badge on Top Right */}
-                    <div className="absolute top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 bg-[#4A403D]/95 text-[#F9F8F6] font-semibold text-[9px] sm:text-[10px] uppercase tracking-wider px-2 py-0.5 sm:px-3 sm:py-1 rounded-full shadow-md backdrop-blur-xs flex items-center gap-1 border border-white/10 z-10">
-                      <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-secondary" />
-                      <span>50% OFF</span>
-                    </div>
+                    <span>{cat === 'All' ? 'All Collections' : cat}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'}`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-                    {/* Category Tag on Top Left */}
-                    <div className="absolute top-2.5 left-2.5 sm:top-3.5 sm:left-3.5 bg-surface/90 backdrop-blur-md text-primary font-semibold text-[9px] sm:text-[10px] uppercase tracking-widest px-2 py-0.5 sm:px-3 sm:py-1 rounded-full border border-outline-variant/30 z-10">
-                      {product.category}
-                    </div>
+          {/* Product Grid for this Collection */}
+          <ProductGrid 
+            products={filteredProducts} 
+            addToCart={addToCart} 
+            navigate={navigate} 
+          />
+        </section>
+      ) : (
+        /* 3. HOMEPAGE BANNER & COLLECTIONS SHOWCASE */
+        <>
+          {/* Bouquet Hero Banner (Using the 4 images in assets/images) */}
+          <section className="relative w-full overflow-hidden bg-surface border-b border-outline-variant/30">
+            <div className="relative w-full h-[440px] sm:h-[600px] lg:h-[700px]">
+              {/* Slides */}
+              {bannerSlides.map((slide, idx) => (
+                <div
+                  key={idx}
+                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                    idx === activeSlide ? 'opacity-100 z-0' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <img
+                    src={slide.src}
+                    alt={slide.title}
+                    className="w-full h-full object-cover object-center md:object-[65%_center]"
+                  />
+                </div>
+              ))}
 
-                    {/* Circular Full-Black Cart Button at Bottom Right */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product);
-                      }}
-                      className="absolute bottom-2.5 right-2.5 sm:bottom-3.5 sm:right-3.5 w-9 h-9 sm:w-11 sm:h-11 bg-black hover:bg-neutral-800 text-white rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 z-20 cursor-pointer border border-white/20"
-                      title="Add to Cart"
-                      aria-label={`Add ${product.name} to cart`}
-                    >
-                      <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                    </button>
+              {/* Soft White Gradient strictly behind text & at bottom only for maximum photo clarity */}
+              <div className="absolute bottom-0 left-0 right-0 h-44 sm:h-56 z-1 bg-gradient-to-t from-surface via-surface/75 to-transparent pointer-events-none" />
+              <div className="hidden sm:block absolute inset-y-0 left-0 w-[45%] z-1 bg-gradient-to-r from-surface/85 via-surface/40 to-transparent pointer-events-none" />
 
-                    {/* Quick Details Hover Overlay for larger screens */}
-                    <div className="hidden sm:flex absolute bottom-0 left-0 w-full p-3.5 bg-gradient-to-t from-primary/90 via-primary/75 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 gap-2 pr-16">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/product/${product.id}`);
-                        }}
-                        className="flex-1 py-2 px-3 bg-white/90 hover:bg-white text-primary text-[11px] font-bold uppercase tracking-wider transition-colors text-center rounded-xl cursor-pointer"
-                      >
-                        View Details
-                      </button>
-                    </div>
+              {/* Banner Content */}
+              <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 flex flex-col justify-end sm:justify-center pb-14 sm:pb-12 pt-4">
+                <div className="max-w-2xl text-left">
+                  {/* Pill Badge */}
+                  <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.14em] sm:tracking-[0.18em] mb-2 sm:mb-3 shadow-md rounded-full">
+                    <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-secondary animate-pulse" />
+                    <span>Bouquet Special • Flat 50% OFF</span>
                   </div>
 
-                  {/* Product Details - LEFT ALIGNED & COMPACT FOR 2 COLUMNS */}
-                  <div className="flex flex-col p-3 sm:p-5 text-left flex-grow justify-between">
-                    <div>
-                      <span className="text-[10px] sm:text-[11px] font-semibold text-outline tracking-wider uppercase mb-0.5 block truncate">
-                        {product.material}
-                      </span>
-                      <h3 
-                        onClick={() => navigate(`/product/${product.id}`)}
-                        className="font-serif text-sm sm:text-lg text-primary font-bold mb-1 leading-snug cursor-pointer hover:text-secondary transition-colors line-clamp-1"
-                      >
-                        {product.name}
-                      </h3>
-                    </div>
+                  <h1 className="font-serif text-2xl sm:text-4xl lg:text-5xl text-primary font-bold tracking-tight mb-3 sm:mb-5 leading-[1.18]">
+                    Add 3 or More Items to Make a Bouquet
+                  </h1>
 
-                    {/* Price Section with Light Red Tag Beside Price */}
-                    <div className="pt-2 border-t border-outline-variant/20 flex items-baseline gap-1.5 flex-wrap">
-                      <span className="text-sm sm:text-base font-bold text-primary tracking-tight">
-                        ₹ {product.price.toLocaleString('en-IN')}
-                      </span>
-                      <span className="text-[11px] sm:text-xs font-medium text-outline line-through">
-                        ₹ {product.originalPrice.toLocaleString('en-IN')}
-                      </span>
-                      <span className="text-[9px] sm:text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200/60 px-1.5 py-0.2 rounded">
-                        50% OFF
-                      </span>
-                    </div>
+                  <div>
+                    <button
+                      onClick={() => {
+                        const el = document.getElementById('collections-showcase');
+                        el?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="inline-flex items-center gap-2 sm:gap-2.5 bg-primary text-white hover:bg-primary/90 text-xs sm:text-sm font-bold uppercase tracking-[0.14em] sm:tracking-[0.15em] py-2.5 sm:py-3.5 px-5 sm:px-8 rounded-xl transition-all shadow-lg hover:shadow-xl cursor-pointer active:scale-98"
+                    >
+                      <span>Shop Collections</span>
+                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-secondary" />
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+              </div>
+
+              {/* Slider Dots */}
+              <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 sm:gap-2 bg-surface/85 backdrop-blur-xs py-1 sm:py-1.5 px-2.5 sm:px-3 rounded-full border border-outline-variant/30 shadow-xs">
+                {bannerSlides.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveSlide(idx)}
+                    className={`h-1.5 sm:h-2 transition-all duration-300 rounded-full cursor-pointer ${
+                      idx === activeSlide ? 'w-5 sm:w-6 bg-primary' : 'w-1.5 sm:w-2 bg-outline-variant/60 hover:bg-primary/50'
+                    }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Curated Collections Showcase Section - Clean, uncluttered layout with generous top breathing space */}
+          <section id="collections-showcase" className="pt-8 sm:pt-12 pb-12 sm:pb-16 px-3 sm:px-8 lg:px-12 max-w-7xl mx-auto w-full">
+            <div className="flex items-center justify-between mb-4 sm:mb-10 pb-2 border-b border-outline-variant/30">
+              <div>
+                <h2 className="font-serif text-2xl sm:text-3xl text-primary font-bold tracking-tight">
+                  Collections
+                </h2>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Select a category to view pieces
+                </p>
+              </div>
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-secondary bg-secondary/10 px-3 py-1 rounded-full border border-secondary/20">
+                Flat 50% OFF
+              </span>
+            </div>
+
+            {/* 2 columns on mobile (grid-cols-2), 3 columns on desktop (md:grid-cols-3 lg:grid-cols-3) */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
+              {collections.map((col) => {
+                return (
+                  <div
+                    key={col.category}
+                    onClick={() => {
+                      setSelectedCategory(col.category);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        setSelectedCategory(col.category);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }}
+                    className="group relative rounded-xl sm:rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all duration-500 border border-outline-variant/30 hover:border-primary/50 flex flex-col justify-end min-h-[300px] sm:min-h-[420px] lg:min-h-[500px] bg-surface-container"
+                  >
+                    {/* Background Category Image with Smooth Zoom */}
+                    <img
+                      src={col.image}
+                      alt={`${col.title} Collection`}
+                      className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
+                    />
+                    
+                    {/* Subtle Warm Gold Gradient coming from below for a radiant, luxurious feel */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#2A2016]/95 via-[#4A3828]/60 to-transparent transition-opacity duration-300" />
+
+                    {/* Floating 50% OFF Badge on Top Right */}
+                    <div className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 z-10">
+                      <span className="bg-[#4A403D]/95 backdrop-blur-xs text-[#F9F8F6] border border-white/20 text-[9px] sm:text-xs font-bold tracking-wider px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full flex items-center gap-1 shadow-sm">
+                        <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-secondary" />
+                        <span>50% OFF</span>
+                      </span>
+                    </div>
+
+                    {/* Bottom Editorial Content - Luxurious Gold Styling */}
+                    <div className="relative z-10 p-3 sm:p-5 lg:p-6 flex flex-col justify-end text-left">
+                      <h3 className="font-serif text-lg sm:text-2xl lg:text-3xl text-[#F9F8F6] font-bold tracking-tight mb-0.5 group-hover:text-[#F3E5AB] transition-colors">
+                        {col.title}
+                      </h3>
+                      <p className="text-[11px] sm:text-xs lg:text-sm text-[#E6D7C3] font-medium mb-1.5 sm:mb-2 line-clamp-1 hidden sm:block">
+                        {col.tagline}
+                      </p>
+                      
+                      <div className="pt-1.5 sm:pt-2 border-t border-[#D4AF37]/30 flex items-center justify-between">
+                        <span className="text-[11px] sm:text-xs lg:text-sm font-semibold text-[#F9F8F6]/90">
+                          From <span className="text-[#F3E5AB] font-bold text-xs sm:text-sm lg:text-base">₹ {col.startingPrice.toLocaleString('en-IN')}</span>
+                        </span>
+                        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-[#F3E5AB] flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                          <span>View</span>
+                          <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-[#D4AF37]" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* The Raya Standard / Brand Pillars */}
+            <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-outline-variant/30">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5">
+                <div className="p-4 bg-surface-container rounded-xl border border-outline-variant/30 flex flex-col items-center text-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-serif text-xs sm:text-sm font-bold text-primary mb-0.5">High-Luster Polish</h4>
+                  <p className="text-[10px] sm:text-xs text-on-surface-variant leading-relaxed">
+                    Engineered for lasting mirror shine and anti-fade durability.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-surface-container rounded-xl border border-outline-variant/30 flex flex-col items-center text-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-serif text-xs sm:text-sm font-bold text-primary mb-0.5">Anti-Tarnish & Waterproof</h4>
+                  <p className="text-[10px] sm:text-xs text-on-surface-variant leading-relaxed">
+                    Sweatproof and showerproof daily durability.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-surface-container rounded-xl border border-outline-variant/30 flex flex-col items-center text-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                    <Gem className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-serif text-xs sm:text-sm font-bold text-primary mb-0.5">Skin Safe Comfort</h4>
+                  <p className="text-[10px] sm:text-xs text-on-surface-variant leading-relaxed">
+                    Hypoallergenic threaded backs and smooth clasps.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-surface-container rounded-xl border border-outline-variant/30 flex flex-col items-center text-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-serif text-xs sm:text-sm font-bold text-primary mb-0.5">Insured Delivery</h4>
+                  <p className="text-[10px] sm:text-xs text-on-surface-variant leading-relaxed">
+                    Fast, insured delivery with prompt WhatsApp care.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
     </main>
+  );
+}
+
+// Reusable Product Grid Component for Collection & Search views
+function ProductGrid({
+  products,
+  addToCart,
+  navigate,
+}: {
+  products: Product[];
+  addToCart: (product: Product, quantityToAdd?: number) => void;
+  navigate: (path: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-6 sm:gap-x-8 sm:gap-y-12">
+      {products.map((product) => {
+        const coverImg = (product.images && product.images[0]) || product.image;
+        return (
+          <div 
+            key={product.id} 
+            className="group flex flex-col bg-surface border border-outline-variant/30 hover:border-primary/40 transition-all duration-300 shadow-xs hover:shadow-xl rounded-xl sm:rounded-2xl overflow-hidden"
+          >
+            {/* Image Container */}
+            <div 
+              className="w-full aspect-[4/5] bg-surface-container relative overflow-hidden cursor-pointer"
+              onClick={() => navigate(`/product/${product.id}`)}
+            >
+              <img 
+                src={coverImg} 
+                alt={product.name} 
+                className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+              />
+              
+              {/* Luxury Grey Badge on Top Right */}
+              <div className="absolute top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 bg-[#4A403D]/95 text-[#F9F8F6] font-semibold text-[9px] sm:text-[10px] uppercase tracking-wider px-2 py-0.5 sm:px-3 sm:py-1 rounded-full shadow-md backdrop-blur-xs flex items-center gap-1 border border-white/10 z-10">
+                <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-secondary" />
+                <span>50% OFF</span>
+              </div>
+
+              {/* Category Tag on Top Left */}
+              <div className="absolute top-2.5 left-2.5 sm:top-3.5 sm:left-3.5 bg-surface/90 backdrop-blur-md text-primary font-semibold text-[9px] sm:text-[10px] uppercase tracking-widest px-2 py-0.5 sm:px-3 sm:py-1 rounded-full border border-outline-variant/30 z-10">
+                {product.category}
+              </div>
+
+              {/* Circular Full-Black Cart Button at Bottom Right */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addToCart(product);
+                }}
+                className="absolute bottom-2.5 right-2.5 sm:bottom-3.5 sm:right-3.5 w-9 h-9 sm:w-11 sm:h-11 bg-black hover:bg-neutral-800 text-white rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 z-20 cursor-pointer border border-white/20"
+                title="Add to Cart"
+                aria-label={`Add ${product.name} to cart`}
+              >
+                <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </button>
+
+              {/* Quick Details Hover Overlay for larger screens */}
+              <div className="hidden sm:flex absolute bottom-0 left-0 w-full p-3.5 bg-gradient-to-t from-primary/90 via-primary/75 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 gap-2 pr-16">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/product/${product.id}`);
+                  }}
+                  className="flex-1 py-2 px-3 bg-white/90 hover:bg-white text-primary text-[11px] font-bold uppercase tracking-wider transition-colors text-center rounded-xl cursor-pointer"
+                >
+                  View Details
+                </button>
+              </div>
+            </div>
+
+            {/* Product Details */}
+            <div className="flex flex-col p-3 sm:p-5 text-left flex-grow justify-between">
+              <div>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-outline tracking-wider uppercase mb-0.5 block truncate">
+                  {product.material}
+                </span>
+                <h3 
+                  onClick={() => navigate(`/product/${product.id}`)}
+                  className="font-serif text-sm sm:text-lg text-primary font-bold mb-1 leading-snug cursor-pointer hover:text-secondary transition-colors line-clamp-1"
+                >
+                  {product.name}
+                </h3>
+              </div>
+
+              {/* Price Section */}
+              <div className="pt-2 border-t border-outline-variant/20 flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-sm sm:text-base font-bold text-primary tracking-tight">
+                  ₹ {product.price.toLocaleString('en-IN')}
+                </span>
+                <span className="text-[11px] sm:text-xs font-medium text-outline line-through">
+                  ₹ {product.originalPrice.toLocaleString('en-IN')}
+                </span>
+                <span className="text-[9px] sm:text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200/60 px-1.5 py-0.2 rounded">
+                  50% OFF
+                </span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -463,6 +730,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [orderAsBouquet, setOrderAsBouquet] = useState(true);
 
   // Automatically scroll to top whenever location changes
   useEffect(() => {
@@ -533,14 +801,18 @@ export default function App() {
       return `${idx + 1}. ${item.product.name} (Qty: ${item.quantity})`;
     }).join('\n');
 
-    const text = `Hi Raya Jewels! I would like to order the following item(s):\n\n${itemsListStr}\n\nPlease assist me with confirming my order and shipping details. Thank you!`;
+    const packagingStr = (totalCartCount >= 3 && orderAsBouquet)
+      ? '💐 Packaging: Handcrafted Luxury Bouquet (3+ Items Bouquet Option)'
+      : '📦 Packaging: Signature Luxury Velvet Box';
+
+    const text = `Hi Raya Jewels! I would like to order the following item(s):\n\n${itemsListStr}\n\n${packagingStr}\n\nPlease assist me with confirming my order and shipping details. Thank you!`;
 
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
   const handleSingleProductWhatsApp = (product: Product) => {
-    const text = `Hi Raya Jewels! I would like to order:\n\n*${product.name}*\nCategory: ${product.category}\n\nPlease assist me with confirming my order. Thank you!`;
+    const text = `Hi Raya Jewels! I would like to order:\n\n*${product.name}*\nCategory: ${product.category}\n\nPlease assist me with confirming my order and pricing. Thank you!`;
     const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -578,24 +850,45 @@ export default function App() {
       {/* Announcement Bar */}
       <div className="bg-primary text-white text-[11px] font-semibold tracking-[0.15em] uppercase py-2.5 px-4 text-center flex items-center justify-center gap-2 border-b border-secondary/20">
         <Sparkles className="w-3.5 h-3.5 text-secondary animate-pulse" />
-        <span>LIMITED TIME SALE: FLAT 50% OFF STOREWIDE — COMPLIMENTARY INSURED SHIPPING</span>
+        <span>LIMITED TIME SALE: FLAT 50% OFF STOREWIDE</span>
         <Sparkles className="w-3.5 h-3.5 text-secondary animate-pulse" />
       </div>
 
       {/* Header */}
       <header className="sticky top-0 w-full z-40 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 transition-all">
-        <div className="flex justify-between items-center px-4 md:px-12 py-3 max-w-7xl mx-auto">
-          {/* Mobile menu trigger */}
-          <button 
-            className="md:hidden text-primary p-1 hover:opacity-70 transition-opacity cursor-pointer"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            aria-label="Toggle navigation menu"
-          >
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+        <div className="flex justify-between items-center px-4 md:px-8 lg:px-12 py-3 max-w-7xl mx-auto gap-4">
+          {/* Left: Mobile menu trigger + Brand Logo */}
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Mobile menu trigger */}
+            <button 
+              className="md:hidden text-primary p-1 hover:opacity-70 transition-opacity cursor-pointer"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="Toggle navigation menu"
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+
+            {/* Brand Logo & Name */}
+            <button 
+              onClick={() => {
+                setSelectedCategory('All');
+                navigate('/');
+              }} 
+              className="flex items-center gap-2 sm:gap-2.5 cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              <img 
+                src={logoImg} 
+                alt="Raya Jewels Logo" 
+                className="h-8 w-auto md:h-10 rounded-full object-cover border border-secondary/40 shadow-xs" 
+              />
+              <span className="font-serif text-xl sm:text-2xl lg:text-3xl tracking-tight text-primary font-bold whitespace-nowrap">
+                Raya Jewels
+              </span>
+            </button>
+          </div>
           
-          {/* Desktop Nav Categories */}
-          <nav className="hidden md:flex gap-8 items-center text-xs tracking-[0.12em] font-semibold uppercase text-on-surface-variant">
+          {/* Center: Desktop Nav Categories (no overlap with logo) */}
+          <nav className="hidden md:flex gap-4 lg:gap-6 xl:gap-8 items-center justify-center text-xs tracking-[0.12em] font-semibold uppercase text-on-surface-variant flex-1">
             {CATEGORIES.map(cat => (
               <button
                 key={cat}
@@ -605,7 +898,7 @@ export default function App() {
                     navigate('/');
                   }
                 }}
-                className={`transition-all hover:text-primary cursor-pointer relative py-1 ${
+                className={`transition-all hover:text-primary cursor-pointer relative py-1 whitespace-nowrap ${
                   selectedCategory === cat && location.pathname === '/'
                     ? 'text-primary font-bold border-b-2 border-primary'
                     : 'text-on-surface-variant/80'
@@ -616,26 +909,8 @@ export default function App() {
             ))}
           </nav>
 
-          {/* Brand Logo & Name */}
-          <button 
-            onClick={() => {
-              setSelectedCategory('All');
-              navigate('/');
-            }} 
-            className="flex items-center gap-2 cursor-pointer absolute left-1/2 -translate-x-1/2 hover:opacity-90 transition-opacity"
-          >
-            <img 
-              src={logoImg} 
-              alt="Raya Jewels Logo" 
-              className="h-8 w-auto md:h-10 rounded-full object-cover border border-secondary/40 shadow-xs" 
-            />
-            <span className="font-serif text-xl md:text-3xl tracking-tight text-primary font-bold whitespace-nowrap">
-              Raya Jewels
-            </span>
-          </button>
-
-          {/* Search & Cart Actions */}
-          <div className="flex gap-4 md:gap-5 items-center text-primary">
+          {/* Right: Search & Cart Actions */}
+          <div className="flex gap-3.5 md:gap-5 items-center text-primary shrink-0">
             <button 
               onClick={() => setIsSearchOpen(!isSearchOpen)} 
               className="p-1 hover:opacity-70 transition-opacity relative text-primary cursor-pointer"
@@ -665,7 +940,7 @@ export default function App() {
               <Search className="w-4 h-4 text-outline" />
               <input
                 type="text"
-                placeholder="Search earrings, necklaces, rings, gold..."
+                placeholder="Search earrings, necklaces, bangles, watches..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent text-sm focus:outline-none text-primary placeholder:text-outline"
@@ -682,8 +957,8 @@ export default function App() {
         
         {/* Mobile Nav Drawer */}
         {isMenuOpen && (
-          <div className="md:hidden absolute top-full left-0 w-full bg-surface border-b border-outline-variant/30 py-6 px-6 flex flex-col gap-4 text-sm tracking-[0.1em] font-semibold uppercase text-primary shadow-xl">
-            <span className="text-[10px] text-outline tracking-[0.2em]">Categories</span>
+          <div className="md:hidden absolute top-full left-0 w-full bg-surface border-b border-outline-variant/30 py-6 px-6 flex flex-col gap-3 text-sm tracking-[0.1em] font-semibold uppercase text-primary shadow-xl">
+            <span className="text-[10px] text-outline tracking-[0.2em]">Collections</span>
             {CATEGORIES.map(cat => (
               <button
                 key={cat}
@@ -699,9 +974,7 @@ export default function App() {
                 }`}
               >
                 <span>{cat === 'All' ? 'All Collections' : cat}</span>
-                <span className="text-xs text-outline font-normal">
-                  ({cat === 'All' ? products.length : products.filter(p => p.category === cat).length})
-                </span>
+                <ChevronRight className="w-4 h-4 text-outline" />
               </button>
             ))}
           </div>
@@ -784,7 +1057,7 @@ export default function App() {
                   <ShoppingBag className="w-16 h-16 text-outline-variant mb-4" />
                   <p className="font-serif text-xl text-primary font-bold mb-2">Your cart is empty</p>
                   <p className="text-xs text-on-surface-variant mb-6 max-w-xs">
-                    Explore our 50% OFF collection to add handcrafted gold and diamond pieces.
+                    Explore our 50% OFF collections to discover handcrafted anti-tarnish jewelry designs.
                   </p>
                   <button
                     onClick={() => {
@@ -871,6 +1144,64 @@ export default function App() {
             {/* Cart Footer & Checkout */}
             {cartItems.length > 0 && (
               <div className="p-6 border-t border-outline-variant/30 bg-surface-container flex flex-col gap-4">
+                {/* Bouquet Packaging Option (Semi-transparent until 3 or more items) */}
+                <div 
+                  className={`p-3.5 rounded-xl border transition-all duration-300 ${
+                    totalCartCount >= 3 
+                      ? 'bg-amber-500/10 border-amber-400/50 shadow-xs cursor-pointer' 
+                      : 'bg-surface-container-high/60 border-outline-variant/30 opacity-40 cursor-not-allowed select-none'
+                  }`}
+                  onClick={() => {
+                    if (totalCartCount >= 3) {
+                      setOrderAsBouquet(!orderAsBouquet);
+                    }
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="bouquet-packaging-checkbox"
+                      checked={totalCartCount >= 3 && orderAsBouquet}
+                      onChange={(e) => {
+                        if (totalCartCount >= 3) {
+                          setOrderAsBouquet(e.target.checked);
+                        }
+                      }}
+                      disabled={totalCartCount < 3}
+                      className={`mt-0.5 w-4 h-4 rounded accent-primary ${
+                        totalCartCount < 3 ? 'cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label 
+                          htmlFor="bouquet-packaging-checkbox" 
+                          className={`text-xs font-bold ${
+                            totalCartCount >= 3 ? 'text-primary cursor-pointer' : 'text-on-surface-variant cursor-not-allowed'
+                          }`}
+                        >
+                          Order as a Bouquet
+                        </label>
+                        {totalCartCount >= 3 ? (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-surface border border-outline-variant/40 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5 text-secondary" />
+                            <span>3+ Items Option</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-outline bg-surface-container px-2 py-0.5 rounded-full border border-outline-variant/40">
+                            Add {3 - totalCartCount} more to unlock
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                        {totalCartCount >= 3 
+                          ? '💐 Your entire 3+ items order will be hand-styled into a luxury bouquet arrangement.' 
+                          : 'Select 3 or more jewelry pieces to order as a luxury bouquet.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Savings Summary Banner */}
                 <div className="bg-rose-50 border border-rose-200/60 p-3 rounded-xl flex items-center justify-between text-xs text-rose-800 font-bold">
                   <div className="flex items-center gap-1.5">
@@ -922,10 +1253,10 @@ export default function App() {
               <h2 className="font-serif text-2xl text-primary font-bold">Raya Jewels</h2>
             </div>
             <p className="text-sm text-on-surface-variant max-w-xs mx-auto md:mx-0 leading-relaxed">
-              Sophisticated minimalism handcrafted in solid gold and genuine gemstones for the discerning modern individual.
+              Sophisticated minimalism handcrafted with anti-tarnish durability and fine gemstones for the discerning modern individual.
             </p>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-center md:items-start">
             <h4 className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-2">Shop Categories</h4>
             {CATEGORIES.map(cat => (
               <button
@@ -936,22 +1267,22 @@ export default function App() {
                     navigate('/');
                   }
                 }}
-                className="text-sm text-on-surface-variant hover:text-primary text-left transition-colors cursor-pointer"
+                className="text-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer text-center md:text-left"
               >
                 {cat === 'All' ? 'All Collections' : cat}
               </button>
             ))}
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 items-center md:items-start">
             <h4 className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-2">Client Care</h4>
-            <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Care Guide</a>
-            <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Shipping & Returns</a>
+            <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer text-center md:text-left">Care Guide</a>
+            <a href="#" className="text-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer text-center md:text-left">Shipping & Delivery</a>
             <button 
               onClick={() => {
                 const text = "Hi, I am interested in your products.";
                 window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(text)}`, '_blank');
               }} 
-              className="text-sm text-on-surface-variant hover:text-primary text-left transition-colors cursor-pointer"
+              className="text-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer text-center md:text-left"
             >
               Contact Us on WhatsApp
             </button>
