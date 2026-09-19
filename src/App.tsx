@@ -3,9 +3,13 @@ import { Routes, Route, useNavigate, useParams, useLocation } from 'react-router
 import { 
   Menu, Search, ShoppingBag, ArrowLeft, X, Plus, Minus, Trash2, 
   Check, Tag, Sparkles, ShieldCheck, ChevronLeft, ChevronRight, 
-  ArrowRight, Gem, Truck, Shield 
+  ArrowRight, Gem, Truck, Shield, AlertCircle, RotateCcw
 } from 'lucide-react';
-import { products, Product, CATEGORIES, Category, getCollectionsWithMeta, CollectionItem } from './data';
+import { Product, Category, getCollectionsWithMeta, CollectionItem } from './data';
+import { fetchProducts, fetchCategories, fetchProductById } from './services/productService';
+import AddProductView from './components/AddProductView';
+import ProductAccordions from './components/ProductAccordions';
+import SocialVideoShowcase from './components/SocialVideoShowcase';
 import logoImg from '../assets/logo.jpg';
 import bouquet1 from '../assets/images/bouquet1.jpeg';
 import bouquet2 from '../assets/images/bouquet2.jpeg';
@@ -18,24 +22,51 @@ interface CartItem {
 }
 
 function ProductDetailView({
+  products,
+  isLoading,
   addToCart,
   handleSingleProductWhatsApp,
   setSelectedCategory,
 }: {
+  products: Product[];
+  isLoading: boolean;
   addToCart: (product: Product, quantityToAdd?: number) => void;
   handleSingleProductWhatsApp: (product: Product) => void;
   setSelectedCategory: (cat: Category) => void;
 }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const selectedProduct = products.find(p => p.id === id);
-
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [directProduct, setDirectProduct] = useState<Product | null>(null);
+  const [isFetchingDirect, setIsFetchingDirect] = useState(false);
 
-  // Reset active thumbnail on product change
+  // Reset active thumbnail and scroll to top on product change
   useEffect(() => {
     setActiveImageIndex(0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [id]);
+
+  // If product not in in-memory list (e.g., navigated directly to URL), fetch directly from Supabase
+  useEffect(() => {
+    if (id && !products.find(p => p.id === id)) {
+      setIsFetchingDirect(true);
+      fetchProductById(id).then(res => {
+        setDirectProduct(res.data);
+        setIsFetchingDirect(false);
+      });
+    }
+  }, [id, products]);
+
+  const selectedProduct = products.find(p => p.id === id) || directProduct;
+
+  if (isLoading || isFetchingDirect) {
+    return (
+      <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-8 md:px-12 py-24 flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-3 border-primary/20 border-t-primary rounded-full animate-spin mb-4" />
+        <p className="text-sm font-serif text-primary">Loading jewelry piece...</p>
+      </main>
+    );
+  }
 
   if (!selectedProduct) {
     return (
@@ -55,6 +86,18 @@ function ProductDetailView({
   const imageList = selectedProduct.images && selectedProduct.images.length > 0 
     ? selectedProduct.images 
     : [selectedProduct.image];
+
+  // Up to 4 curated related products prioritizing the same category
+  const relatedProducts = products
+    .filter(p => p.id !== selectedProduct.id)
+    .sort((a, b) => {
+      const aSame = a.category.toLowerCase() === selectedProduct.category.toLowerCase();
+      const bSame = b.category.toLowerCase() === selectedProduct.category.toLowerCase();
+      if (aSame && !bSame) return -1;
+      if (!aSame && bSame) return 1;
+      return 0;
+    })
+    .slice(0, 4);
 
   return (
     <main className="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-8 md:px-12 py-8 md:py-16">
@@ -91,9 +134,9 @@ function ProductDetailView({
         <span className="text-primary font-bold">{selectedProduct.name}</span>
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {/* Left Image View & Interactive Carousel (width cropped slightly, full height preserved) */}
-        <div className="lg:col-span-7 flex flex-col gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+        {/* Left Image View & Interactive Carousel */}
+        <div className="lg:col-span-6 flex flex-col gap-4">
           <div className="w-full aspect-[3.8/5] bg-surface-container relative overflow-hidden rounded-2xl shadow-md border border-outline-variant/30 group">
             <img 
               src={imageList[activeImageIndex]} 
@@ -126,128 +169,198 @@ function ProductDetailView({
               </>
             )}
 
-            {/* ANTI TARNISH Label (TOP LEFT) */}
+            {/* ANTI TARNISH Label */}
             <div className="absolute top-4 left-4 bg-emerald-950/90 text-emerald-200 font-semibold text-[10px] sm:text-xs uppercase tracking-widest px-3 py-1.5 shadow-lg rounded-full backdrop-blur-md flex items-center gap-1.5 border border-emerald-500/30">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>ANTI TARNISH</span>
             </div>
 
-            {/* 50% OFF Badge (TOP RIGHT) */}
+            {/* 50% OFF Badge */}
             <div className="absolute top-4 right-4 bg-[#4A403D]/95 text-[#F9F8F6] font-semibold text-[10px] sm:text-xs uppercase tracking-widest px-3.5 py-1.5 shadow-lg rounded-full backdrop-blur-md flex items-center gap-1.5 border border-white/10">
               <Tag className="w-3.5 h-3.5 text-secondary" />
               <span>50% OFF SPECIAL</span>
             </div>
           </div>
 
-          {/* Clickable Thumbnail Previews Below Main Image */}
+          {/* Thumbnail Gallery (When 2+ images exist) */}
           {imageList.length > 1 && (
-            <div className="flex gap-3 overflow-x-auto pb-1 justify-center sm:justify-start">
+            <div className="flex gap-3 overflow-x-auto pb-2">
               {imageList.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`relative w-20 h-24 rounded-xl overflow-hidden border-2 transition-all cursor-pointer flex-shrink-0 ${
-                    activeImageIndex === idx
-                      ? 'border-primary ring-2 ring-primary/40 scale-105 shadow-md'
-                      : 'border-outline-variant/40 opacity-70 hover:opacity-100 hover:border-primary/50'
+                  className={`w-20 h-24 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shrink-0 ${
+                    idx === activeImageIndex 
+                      ? 'border-primary shadow-md scale-102' 
+                      : 'border-outline-variant/50 hover:border-primary/50 opacity-70 hover:opacity-100'
                   }`}
-                  aria-label={`View image ${idx + 1}`}
                 >
-                  <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img 
+                    src={img} 
+                    alt={`Thumbnail ${idx + 1}`} 
+                    className="w-full h-full object-cover"
+                  />
                 </button>
               ))}
             </div>
           )}
         </div>
-        
-        {/* Right Product Details & Actions */}
-        <div className="lg:col-span-5 flex flex-col">
-          <span className="text-xs font-bold uppercase tracking-[0.15em] text-secondary mb-2">
-            {selectedProduct.material} • {selectedProduct.category}
-          </span>
-          
-          <h1 className="font-serif text-3xl md:text-5xl text-primary font-bold mb-4 leading-tight">
-            {selectedProduct.name}
-          </h1>
 
-          {/* Price Block */}
-          <div className="bg-surface-container p-4 rounded-xl border border-outline-variant/30 mb-6 flex items-baseline gap-3 flex-wrap">
-            <span className="text-2xl md:text-3xl font-bold text-primary">
-              ₹ {selectedProduct.price.toLocaleString('en-IN')}
-            </span>
-            <span className="text-base font-semibold text-outline line-through">
-              ₹ {selectedProduct.originalPrice.toLocaleString('en-IN')}
-            </span>
-            <span className="bg-red-50 text-red-700 text-xs font-semibold px-2.5 py-1 border border-red-200/60 rounded-md ml-auto">
-              Save ₹ {(selectedProduct.originalPrice - selectedProduct.price).toLocaleString('en-IN')} (50%)
-            </span>
-          </div>
-
-          <div className="prose text-on-surface-variant text-sm md:text-base leading-relaxed mb-8">
-            <p>{selectedProduct.description}</p>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-3.5 mb-10">
-            {/* Add to Cart Button */}
-            <button 
-              onClick={() => addToCart(selectedProduct)}
-              className="w-full py-4 px-8 bg-primary text-white font-bold text-xs uppercase tracking-[0.15em] hover:bg-primary/90 transition-all duration-200 shadow-lg flex items-center justify-center gap-3 rounded-xl border border-primary active:scale-98 cursor-pointer"
-            >
-              <ShoppingBag className="w-4 h-4 text-secondary" />
-              <span>Add to Cart</span>
-            </button>
-
-            {/* Instant Order via WhatsApp */}
-            <button 
-              onClick={() => handleSingleProductWhatsApp(selectedProduct)}
-              className="w-full py-4 px-8 bg-[#128C7E] hover:bg-[#075E54] text-white font-bold text-xs uppercase tracking-[0.15em] transition-all duration-200 shadow-md flex items-center justify-center gap-3 rounded-xl active:scale-98 cursor-pointer"
-            >
-              <span>Buy Now via WhatsApp</span>
-            </button>
+        {/* Right Product Details & Buy Actions */}
+        <div className="lg:col-span-6 flex flex-col gap-5">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-secondary">
+                {selectedProduct.category}
+              </span>
+              <span className="text-outline-variant">•</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-outline">
+                {selectedProduct.material}
+              </span>
+            </div>
+            <h1 className="font-serif text-3xl sm:text-4xl text-primary font-bold tracking-tight mb-4">
+              {selectedProduct.name}
+            </h1>
             
-            <p className="text-[11px] text-center text-outline mt-1">
-              🔒 Fast checkout & personalized care via WhatsApp assistant.
+            {/* Price Box */}
+            <div className="flex items-baseline gap-3 p-4 bg-surface-container rounded-2xl border border-outline-variant/30 mb-4">
+              <span className="text-3xl sm:text-4xl font-bold text-primary">
+                ₹ {selectedProduct.price.toLocaleString('en-IN')}
+              </span>
+              <span className="text-base text-outline line-through font-medium">
+                ₹ {selectedProduct.lastPrice.toLocaleString('en-IN')}
+              </span>
+              <span className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                50% OFF
+              </span>
+            </div>
+
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              {selectedProduct.description}
             </p>
           </div>
 
-          {/* Product Specifications Accordion */}
-          <div className="border-t border-outline-variant/30 divide-y divide-outline-variant/30">
-            <div className="py-5">
-              <h3 className="font-serif text-lg text-primary font-bold mb-3">Product Highlights</h3>
-              <ul className="text-xs text-on-surface-variant space-y-2">
-                <li className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span className="font-bold text-primary">100% Anti-Tarnish & Waterproof Protection</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
-                  <span>Crafted with genuine {selectedProduct.material}</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
-                  <span>Certified 50% Promotional Discount Applied</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
-                  <span>Handcrafted by master jewelers</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-secondary rounded-full"></span>
-                  <span>No returns policy</span>
-                </li>
-              </ul>
+          {/* Trust Guarantees */}
+          <div className="grid grid-cols-2 gap-3 py-4 border-y border-outline-variant/30 text-xs">
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <ShieldCheck className="w-4 h-4 text-secondary shrink-0" />
+              <span>Waterproof & Sweatproof</span>
             </div>
-            
-            <div className="py-5">
-              <h3 className="font-serif text-lg text-primary font-bold mb-2">Shipping & Packaging</h3>
-              <p className="text-xs text-on-surface-variant leading-relaxed">
-                Insured delivery nationwide. Add 3 or more items to order as a luxury bouquet arrangement. Every order is packaged securely with an authenticity certificate.
-              </p>
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <Sparkles className="w-4 h-4 text-secondary shrink-0" />
+              <span>Anti-Tarnish Seal</span>
             </div>
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <Truck className="w-4 h-4 text-secondary shrink-0" />
+              <span>Shipped with Care in Raya Box</span>
+            </div>
+            <div className="flex items-center gap-2 text-primary font-medium">
+              <Gem className="w-4 h-4 text-secondary shrink-0" />
+              <span>Hypoallergenic & Skin-Safe</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3 pt-2">
+            <button
+              onClick={() => addToCart(selectedProduct)}
+              className="w-full py-4 px-6 bg-primary hover:bg-primary/90 text-white font-bold text-xs uppercase tracking-[0.15em] rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Add to Shopping Bag</span>
+            </button>
+
+            <button
+              onClick={() => handleSingleProductWhatsApp(selectedProduct)}
+              className="w-full py-3.5 px-6 bg-[#128C7E] hover:bg-[#075E54] text-white font-bold text-xs uppercase tracking-[0.15em] rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Order on WhatsApp Directly</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Product Information & Guarantees - Desktop Only, Below Main Section */}
+      <div className="hidden lg:block mt-12 pt-8 border-t border-outline-variant/30">
+        <ProductAccordions product={selectedProduct} />
+      </div>
+
+      {/* Social Media Videos Showcase (Styled in Motion @raya_.jewels) */}
+      <SocialVideoShowcase productId={selectedProduct.id} />
+
+      {/* Curated Recommendations / Complete the Look */}
+      {relatedProducts.length > 0 && (
+        <section className="mt-16 sm:mt-20 pt-12 border-t border-outline-variant/30">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container border border-outline-variant/30 text-outline text-xs font-bold uppercase tracking-wider mb-2.5">
+                <Sparkles className="w-3.5 h-3.5 text-secondary" />
+                <span>Curated Recommendations</span>
+              </div>
+              <h2 className="font-serif text-2xl sm:text-3xl text-primary font-bold">
+                Complete the Look
+              </h2>
+              <p className="text-xs sm:text-sm text-on-surface-variant max-w-xl mt-1">
+                Handcrafted pieces that pair effortlessly with your selection.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {relatedProducts.map(relProduct => (
+              <div 
+                key={relProduct.id}
+                onClick={() => {
+                  navigate(`/product/${relProduct.id}`);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="group cursor-pointer flex flex-col bg-surface-container/30 rounded-2xl p-3 border border-outline-variant/30 hover:border-outline-variant/80 hover:shadow-md transition-all"
+              >
+                <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-surface-container mb-3">
+                  <img 
+                    src={relProduct.image} 
+                    alt={relProduct.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute top-2.5 left-2.5 bg-emerald-950/90 text-emerald-200 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    Anti Tarnish
+                  </div>
+                  <div className="absolute top-2.5 right-2.5 bg-[#4A403D]/95 text-[#F9F8F6] text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full">
+                    50% OFF
+                  </div>
+                </div>
+
+                <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">
+                  {relProduct.category}
+                </span>
+                <h4 className="font-serif text-sm font-bold text-primary truncate mt-0.5 group-hover:text-secondary transition-colors">
+                  {relProduct.name}
+                </h4>
+
+                <div className="flex items-baseline gap-2 mt-1.5 mb-3">
+                  <span className="text-sm font-bold text-primary">
+                    ₹ {relProduct.price.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-xs text-outline line-through">
+                    ₹ {relProduct.lastPrice.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToCart(relProduct);
+                  }}
+                  className="mt-auto w-full py-2 px-3 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Add to Bag</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }
@@ -258,6 +371,9 @@ function HomeCatalogView({
   searchQuery,
   setSearchQuery,
   filteredProducts,
+  allProducts,
+  categories,
+  isLoading,
   addToCart,
 }: {
   selectedCategory: Category;
@@ -265,10 +381,13 @@ function HomeCatalogView({
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   filteredProducts: Product[];
+  allProducts: Product[];
+  categories: string[];
+  isLoading: boolean;
   addToCart: (product: Product, quantityToAdd?: number) => void;
 }) {
   const navigate = useNavigate();
-  const collections = getCollectionsWithMeta();
+  const collections = getCollectionsWithMeta(allProducts);
 
   const isSearchActive = searchQuery.trim().length > 0;
   const isViewingSpecificCollection = selectedCategory !== 'All' && !isSearchActive;
@@ -289,9 +408,11 @@ function HomeCatalogView({
     return () => clearInterval(timer);
   }, [bannerSlides.length]);
 
+  const allCategoryPills = ['All', ...categories];
+
   return (
     <main className="flex-grow flex flex-col">
-      {/* 1. SEARCH RESULTS VIEW (When searching) */}
+      {/* 1. SEARCH RESULTS VIEW */}
       {isSearchActive ? (
         <section className="py-8 sm:py-12 px-4 sm:px-8 md:px-12 max-w-7xl mx-auto w-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-outline-variant/30">
@@ -316,7 +437,13 @@ function HomeCatalogView({
             </button>
           </div>
 
-          {filteredProducts.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-6 sm:gap-x-8 sm:gap-y-12">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className="animate-pulse bg-surface-container rounded-2xl aspect-[4/5] border border-outline-variant/30" />
+              ))}
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <div className="text-center py-16 bg-surface-container/50 border border-outline-variant/30 rounded-2xl max-w-md mx-auto">
               <Search className="w-10 h-10 text-outline-variant mx-auto mb-3" />
               <p className="font-serif text-xl font-bold text-primary mb-2">No matching pieces found</p>
@@ -342,9 +469,8 @@ function HomeCatalogView({
           )}
         </section>
       ) : isViewingSpecificCollection ? (
-        /* 2. SPECIFIC COLLECTION VIEW (When a collection is selected) */
+        /* 2. SPECIFIC COLLECTION VIEW */
         <section className="py-6 sm:py-10 px-3 sm:px-8 md:px-12 max-w-7xl mx-auto w-full">
-          {/* Collection Header & Breadcrumb */}
           <div className="flex flex-col mb-6 sm:mb-8">
             <div className="flex items-center justify-between gap-4 mb-3 flex-wrap">
               <button
@@ -372,7 +498,7 @@ function HomeCatalogView({
                   {selectedCategory} Collection
                 </h1>
                 <p className="text-xs sm:text-sm text-on-surface-variant mt-1 max-w-2xl leading-relaxed">
-                  {collections.find(c => c.category === selectedCategory)?.description || 
+                  {collections.find(c => c.category.toLowerCase() === selectedCategory.toLowerCase())?.description || 
                    'Handcrafted anti-tarnish, waterproof and hypoallergenic luxury designs.'}
                 </p>
               </div>
@@ -384,9 +510,11 @@ function HomeCatalogView({
 
             {/* Quick Switch Pills between collections */}
             <div className="flex flex-wrap gap-2 pt-4">
-              {CATEGORIES.map(cat => {
-                const count = cat === 'All' ? products.length : products.filter(p => p.category === cat).length;
-                const isActive = selectedCategory === cat;
+              {allCategoryPills.map(cat => {
+                const count = cat === 'All' 
+                  ? allProducts.length 
+                  : allProducts.filter(p => p.category.toLowerCase() === cat.toLowerCase()).length;
+                const isActive = selectedCategory.toLowerCase() === cat.toLowerCase();
                 return (
                   <button
                     key={cat}
@@ -411,16 +539,37 @@ function HomeCatalogView({
           </div>
 
           {/* Product Grid for this Collection */}
-          <ProductGrid 
-            products={filteredProducts} 
-            addToCart={addToCart} 
-            navigate={navigate} 
-          />
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-6 sm:gap-x-8 sm:gap-y-12">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className="animate-pulse bg-surface-container rounded-2xl aspect-[4/5] border border-outline-variant/30" />
+              ))}
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-16 bg-surface-container/50 border border-outline-variant/30 rounded-2xl max-w-md mx-auto">
+              <p className="font-serif text-xl font-bold text-primary mb-2">No pieces in this collection yet</p>
+              <p className="text-xs text-on-surface-variant mb-6 px-4">
+                Pieces added for this category in Supabase will automatically appear here.
+              </p>
+              <button
+                onClick={() => setSelectedCategory('All')}
+                className="bg-primary text-white text-xs font-bold uppercase tracking-wider py-3 px-7 rounded-xl cursor-pointer hover:bg-primary/90 transition-colors"
+              >
+                View All Collections
+              </button>
+            </div>
+          ) : (
+            <ProductGrid 
+              products={filteredProducts} 
+              addToCart={addToCart} 
+              navigate={navigate} 
+            />
+          )}
         </section>
       ) : (
         /* 3. HOMEPAGE BANNER & COLLECTIONS SHOWCASE */
         <>
-          {/* Bouquet Hero Banner (Using the 4 images in assets/images) */}
+          {/* Bouquet Hero Banner */}
           <section className="relative w-full overflow-hidden bg-surface border-b border-outline-variant/30">
             <div className="relative w-full h-[440px] sm:h-[600px] lg:h-[700px]">
               {/* Slides */}
@@ -439,14 +588,13 @@ function HomeCatalogView({
                 </div>
               ))}
 
-              {/* Soft White Gradient strictly behind text & at bottom only for maximum photo clarity */}
+              {/* Soft Gradient */}
               <div className="absolute bottom-0 left-0 right-0 h-44 sm:h-56 z-1 bg-gradient-to-t from-surface via-surface/75 to-transparent pointer-events-none" />
               <div className="hidden sm:block absolute inset-y-0 left-0 w-[45%] z-1 bg-gradient-to-r from-surface/85 via-surface/40 to-transparent pointer-events-none" />
 
               {/* Banner Content */}
               <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 flex flex-col justify-end sm:justify-center pb-14 sm:pb-12 pt-4">
                 <div className="max-w-2xl text-left">
-                  {/* Pill Badge */}
                   <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-primary text-white px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.14em] sm:tracking-[0.18em] mb-2 sm:mb-3 shadow-md rounded-full">
                     <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-secondary animate-pulse" />
                     <span>Bouquet Special • Flat 50% OFF</span>
@@ -487,7 +635,7 @@ function HomeCatalogView({
             </div>
           </section>
 
-          {/* Curated Collections Showcase Section - Clean, uncluttered layout with generous top breathing space */}
+          {/* Curated Collections Showcase Section */}
           <section id="collections-showcase" className="pt-8 sm:pt-12 pb-12 sm:pb-16 px-3 sm:px-8 lg:px-12 max-w-7xl mx-auto w-full">
             <div className="flex items-center justify-between mb-4 sm:mb-10 pb-2 border-b border-outline-variant/30">
               <div>
@@ -503,7 +651,7 @@ function HomeCatalogView({
               </span>
             </div>
 
-            {/* 2 columns on mobile (grid-cols-2), 3 columns on desktop (md:grid-cols-3 lg:grid-cols-3) */}
+            {/* Collections Grid */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
               {collections.map((col) => {
                 return (
@@ -523,17 +671,14 @@ function HomeCatalogView({
                     }}
                     className="group relative rounded-xl sm:rounded-2xl overflow-hidden cursor-pointer shadow-sm hover:shadow-xl transition-all duration-500 border border-outline-variant/30 hover:border-primary/50 flex flex-col justify-end min-h-[300px] sm:min-h-[420px] lg:min-h-[500px] bg-surface-container"
                   >
-                    {/* Background Category Image with Smooth Zoom */}
                     <img
                       src={col.image}
                       alt={`${col.title} Collection`}
                       className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-106 transition-transform duration-700 ease-out"
                     />
                     
-                    {/* Subtle Warm Gold Gradient coming from below for a radiant, luxurious feel */}
                     <div className="absolute inset-0 bg-gradient-to-t from-[#2A2016]/95 via-[#4A3828]/60 to-transparent transition-opacity duration-300" />
 
-                    {/* Floating 50% OFF Badge on Top Right */}
                     <div className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 z-10">
                       <span className="bg-[#4A403D]/95 backdrop-blur-xs text-[#F9F8F6] border border-white/20 text-[9px] sm:text-xs font-bold tracking-wider px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full flex items-center gap-1 shadow-sm">
                         <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-secondary" />
@@ -541,7 +686,6 @@ function HomeCatalogView({
                       </span>
                     </div>
 
-                    {/* Bottom Editorial Content - Luxurious Gold Styling */}
                     <div className="relative z-10 p-3 sm:p-5 lg:p-6 flex flex-col justify-end text-left">
                       <h3 className="font-serif text-lg sm:text-2xl lg:text-3xl text-[#F9F8F6] font-bold tracking-tight mb-0.5 group-hover:text-[#F3E5AB] transition-colors">
                         {col.title}
@@ -565,7 +709,7 @@ function HomeCatalogView({
               })}
             </div>
 
-            {/* The Raya Standard / Brand Pillars */}
+            {/* Brand Pillars */}
             <div className="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-outline-variant/30">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5">
                 <div className="p-4 bg-surface-container rounded-xl border border-outline-variant/30 flex flex-col items-center text-center">
@@ -602,9 +746,9 @@ function HomeCatalogView({
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
                     <Truck className="w-4 h-4" />
                   </div>
-                  <h4 className="font-serif text-xs sm:text-sm font-bold text-primary mb-0.5">Insured Delivery</h4>
+                  <h4 className="font-serif text-xs sm:text-sm font-bold text-primary mb-0.5">Bouquet Presentation</h4>
                   <p className="text-[10px] sm:text-xs text-on-surface-variant leading-relaxed">
-                    Fast, insured delivery with prompt WhatsApp care.
+                    Order 3+ pieces to receive in an artisan floral bouquet wrap.
                   </p>
                 </div>
               </div>
@@ -616,7 +760,6 @@ function HomeCatalogView({
   );
 }
 
-// Reusable Product Grid Component for Collection & Search views
 function ProductGrid({
   products,
   addToCart,
@@ -688,7 +831,7 @@ function ProductGrid({
             <div className="flex flex-col p-3 sm:p-5 text-left flex-grow justify-between">
               <div>
                 <span className="text-[10px] sm:text-[11px] font-semibold text-outline tracking-wider uppercase mb-0.5 block truncate">
-                  {product.material}
+                  {product.category}
                 </span>
                 <h3 
                   onClick={() => navigate(`/product/${product.id}`)}
@@ -704,7 +847,7 @@ function ProductGrid({
                   ₹ {product.price.toLocaleString('en-IN')}
                 </span>
                 <span className="text-[11px] sm:text-xs font-medium text-outline line-through">
-                  ₹ {product.originalPrice.toLocaleString('en-IN')}
+                  ₹ {product.lastPrice.toLocaleString('en-IN')}
                 </span>
                 <span className="text-[9px] sm:text-[10px] font-semibold text-red-700 bg-red-50 border border-red-200/60 px-1.5 py-0.2 rounded">
                   50% OFF
@@ -722,6 +865,13 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Dynamic products and categories from Supabase
+  const [productsList, setProductsList] = useState<Product[]>([]);
+  const [categoriesList, setCategoriesList] = useState<string[]>([
+    'Necklaces', 'Bracelets', 'Bangles', 'Earrings', 'Watches'
+  ]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
   const [whatsappNumber] = useState('919383442770');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -736,6 +886,54 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
+
+  // Load products and categories from Supabase
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      setIsLoadingProducts(true);
+      const [prodsRes, cats] = await Promise.all([
+        fetchProducts(),
+        fetchCategories(),
+      ]);
+
+      if (isMounted) {
+        if (prodsRes.data) {
+          setProductsList(prodsRes.data);
+        }
+        if (cats && cats.length > 0) {
+          setCategoriesList(cats);
+        }
+        setIsLoadingProducts(false);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleProductCreated = (newProduct: Product) => {
+    setProductsList(prev => [newProduct, ...prev]);
+    showToast(`Published ${newProduct.name} to catalog`);
+  };
+
+  const handleProductUpdated = (updatedProduct: Product) => {
+    setProductsList(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    showToast(`Updated ${updatedProduct.name}`);
+  };
+
+  const handleProductDeleted = (deletedId: string) => {
+    setProductsList(prev => prev.filter(p => p.id !== deletedId));
+    showToast(`Removed product from catalog`);
+  };
+
+  const handleCategoryCreated = (newCat: string) => {
+    setCategoriesList(prev => Array.from(new Set([...prev, newCat])));
+  };
 
   // Cart operations
   const addToCart = (product: Product, quantityToAdd = 1) => {
@@ -773,7 +971,7 @@ export default function App() {
   };
 
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalCartSubtotal = cartItems.reduce((sum, item) => sum + item.product.originalPrice * item.quantity, 0);
+  const totalCartSubtotal = cartItems.reduce((sum, item) => sum + item.product.lastPrice * item.quantity, 0);
   const totalCartPrice = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const totalCartSavings = totalCartSubtotal - totalCartPrice;
 
@@ -785,8 +983,9 @@ export default function App() {
   };
 
   // Filter products by category & search
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+  const filteredProducts = productsList.filter(product => {
+    const matchesCategory = selectedCategory === 'All' || 
+      product.category.toLowerCase() === selectedCategory.toLowerCase();
     const matchesSearch = searchQuery === '' || 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.material.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -817,6 +1016,8 @@ export default function App() {
     window.open(url, '_blank');
   };
 
+  const navCategories = ['All', ...categoriesList];
+
   return (
     <div className="min-h-screen bg-surface flex flex-col font-sans text-on-surface relative">
       {/* Toast Notification */}
@@ -827,7 +1028,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Floating WhatsApp Action Button at Bottom Right */}
+      {/* Floating WhatsApp Action Button */}
       <a
         href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent("Hi, I am interested in your products.")}`}
         target="_blank"
@@ -854,12 +1055,11 @@ export default function App() {
         <Sparkles className="w-3.5 h-3.5 text-secondary animate-pulse" />
       </div>
 
-      {/* Header */}
+      {/* Header - NOTICE: Strictly NO links or buttons to /add here */}
       <header className="sticky top-0 w-full z-40 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 transition-all">
         <div className="flex justify-between items-center px-4 md:px-8 lg:px-12 py-3 max-w-7xl mx-auto gap-4">
           {/* Left: Mobile menu trigger + Brand Logo */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            {/* Mobile menu trigger */}
             <button 
               className="md:hidden text-primary p-1 hover:opacity-70 transition-opacity cursor-pointer"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -868,7 +1068,6 @@ export default function App() {
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
 
-            {/* Brand Logo & Name */}
             <button 
               onClick={() => {
                 setSelectedCategory('All');
@@ -887,9 +1086,9 @@ export default function App() {
             </button>
           </div>
           
-          {/* Center: Desktop Nav Categories (no overlap with logo) */}
+          {/* Center: Desktop Nav Categories */}
           <nav className="hidden md:flex gap-4 lg:gap-6 xl:gap-8 items-center justify-center text-xs tracking-[0.12em] font-semibold uppercase text-on-surface-variant flex-1">
-            {CATEGORIES.map(cat => (
+            {navCategories.map(cat => (
               <button
                 key={cat}
                 onClick={() => {
@@ -899,7 +1098,7 @@ export default function App() {
                   }
                 }}
                 className={`transition-all hover:text-primary cursor-pointer relative py-1 whitespace-nowrap ${
-                  selectedCategory === cat && location.pathname === '/'
+                  selectedCategory.toLowerCase() === cat.toLowerCase() && location.pathname === '/'
                     ? 'text-primary font-bold border-b-2 border-primary'
                     : 'text-on-surface-variant/80'
                 }`}
@@ -959,7 +1158,7 @@ export default function App() {
         {isMenuOpen && (
           <div className="md:hidden absolute top-full left-0 w-full bg-surface border-b border-outline-variant/30 py-6 px-6 flex flex-col gap-3 text-sm tracking-[0.1em] font-semibold uppercase text-primary shadow-xl">
             <span className="text-[10px] text-outline tracking-[0.2em]">Collections</span>
-            {CATEGORIES.map(cat => (
+            {navCategories.map(cat => (
               <button
                 key={cat}
                 onClick={() => {
@@ -970,7 +1169,9 @@ export default function App() {
                   setIsMenuOpen(false);
                 }}
                 className={`text-left py-2.5 border-b border-outline-variant/20 flex justify-between items-center cursor-pointer ${
-                  selectedCategory === cat && location.pathname === '/' ? 'text-primary font-bold pl-2 border-l-4 border-l-primary' : 'text-on-surface-variant'
+                  selectedCategory.toLowerCase() === cat.toLowerCase() && location.pathname === '/' 
+                    ? 'text-primary font-bold pl-2 border-l-4 border-l-primary' 
+                    : 'text-on-surface-variant'
                 }`}
               >
                 <span>{cat === 'All' ? 'All Collections' : cat}</span>
@@ -992,6 +1193,9 @@ export default function App() {
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               filteredProducts={filteredProducts}
+              allProducts={productsList}
+              categories={categoriesList}
+              isLoading={isLoadingProducts}
               addToCart={addToCart}
             />
           } 
@@ -1000,9 +1204,25 @@ export default function App() {
           path="/product/:id" 
           element={
             <ProductDetailView 
+              products={productsList}
+              isLoading={isLoadingProducts}
               addToCart={addToCart}
               handleSingleProductWhatsApp={handleSingleProductWhatsApp}
               setSelectedCategory={setSelectedCategory}
+            />
+          } 
+        />
+        {/* Secret /add Route - Protected by Admin Password */}
+        <Route 
+          path="/add" 
+          element={
+            <AddProductView 
+              categories={categoriesList}
+              allProducts={productsList}
+              onProductCreated={handleProductCreated}
+              onProductUpdated={handleProductUpdated}
+              onProductDeleted={handleProductDeleted}
+              onCategoryCreated={handleCategoryCreated}
             />
           } 
         />
@@ -1015,6 +1235,9 @@ export default function App() {
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               filteredProducts={filteredProducts}
+              allProducts={productsList}
+              categories={categoriesList}
+              isLoading={isLoadingProducts}
               addToCart={addToCart}
             />
           } 
@@ -1024,13 +1247,11 @@ export default function App() {
       {/* Slide-Over Cart Drawer */}
       {isCartOpen && (
         <div className="fixed inset-0 z-[90] flex justify-end">
-          {/* Backdrop */}
           <div 
             className="fixed inset-0 bg-primary/60 backdrop-blur-sm transition-opacity cursor-pointer"
             onClick={() => setIsCartOpen(false)}
           />
 
-          {/* Drawer Panel */}
           <div className="relative w-full max-w-md bg-surface h-full shadow-2xl flex flex-col z-10 border-l border-outline-variant/30 animate-in slide-in-from-right duration-300">
             {/* Cart Header */}
             <div className="p-6 border-b border-outline-variant/30 flex items-center justify-between bg-surface-container">
@@ -1051,102 +1272,97 @@ export default function App() {
             </div>
 
             {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {cartItems.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-center my-auto py-12">
-                  <ShoppingBag className="w-16 h-16 text-outline-variant mb-4" />
-                  <p className="font-serif text-xl text-primary font-bold mb-2">Your cart is empty</p>
-                  <p className="text-xs text-on-surface-variant mb-6 max-w-xs">
-                    Explore our 50% OFF collections to discover handcrafted anti-tarnish jewelry designs.
+                <div className="text-center py-16 flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center mb-4">
+                    <ShoppingBag className="w-8 h-8 text-outline" />
+                  </div>
+                  <p className="font-serif text-xl font-bold text-primary mb-1">Your bag is empty</p>
+                  <p className="text-xs text-on-surface-variant max-w-xs mb-6">
+                    Add jewelry pieces from our collections to assemble your order or bouquet.
                   </p>
                   <button
                     onClick={() => {
                       setIsCartOpen(false);
                       navigate('/');
                     }}
-                    className="bg-primary text-white text-xs font-bold uppercase tracking-wider py-3.5 px-8 hover:bg-primary/90 transition-colors rounded-xl cursor-pointer"
+                    className="bg-primary text-white text-xs font-bold uppercase tracking-wider py-3 px-6 rounded-xl cursor-pointer hover:bg-primary/90 transition-colors"
                   >
                     Start Shopping
                   </button>
                 </div>
               ) : (
-                cartItems.map(({ product, quantity }) => {
-                  const cartThumb = (product.images && product.images[0]) || product.image;
-                  return (
-                    <div 
-                      key={product.id} 
-                      className="flex gap-4 pb-6 border-b border-outline-variant/20 items-center"
-                    >
-                      {/* Item Thumbnail */}
-                      <img 
-                        src={cartThumb} 
-                        alt={product.name} 
-                        className="w-20 h-24 object-cover bg-surface-container rounded-xl border border-outline-variant/30"
-                      />
-
-                      {/* Item Info */}
-                      <div className="flex-1 flex flex-col">
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-serif text-base text-primary font-bold leading-tight">
+                cartItems.map(({ product, quantity }) => (
+                  <div 
+                    key={product.id}
+                    className="flex gap-4 p-3 bg-surface-container rounded-xl border border-outline-variant/30 relative group"
+                  >
+                    <img 
+                      src={product.image} 
+                      alt={product.name} 
+                      className="w-20 h-24 object-cover rounded-lg border border-outline-variant/30"
+                    />
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start gap-2">
+                          <h4 className="font-serif text-sm font-bold text-primary line-clamp-1">
                             {product.name}
                           </h4>
-                          <button 
+                          <button
                             onClick={() => removeFromCart(product.id)}
-                            className="text-outline hover:text-red-700 transition-colors p-1 cursor-pointer"
+                            className="text-outline hover:text-red-600 transition-colors p-1"
                             title="Remove item"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-
-                        <span className="text-[11px] text-outline mb-2">{product.material}</span>
-
-                        {/* Pricing */}
-                        <div className="flex items-baseline gap-2 mb-3">
-                          <span className="text-sm font-bold text-primary">
-                            ₹ {(product.price * quantity).toLocaleString('en-IN')}
+                        <span className="text-[10px] text-outline font-semibold uppercase tracking-wider block">
+                          {product.category}
+                        </span>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-xs font-bold text-primary">
+                            ₹ {product.price.toLocaleString('en-IN')}
                           </span>
-                          <span className="text-xs text-outline line-through">
-                            ₹ {(product.originalPrice * quantity).toLocaleString('en-IN')}
-                          </span>
-                        </div>
-
-                        {/* Quantity Stepper */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center border border-outline-variant/50 rounded-lg bg-surface-container overflow-hidden">
-                            <button 
-                              onClick={() => updateQuantity(product.id, -1)}
-                              className="p-1.5 text-primary hover:bg-surface-dim transition-colors cursor-pointer"
-                              aria-label="Decrease quantity"
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <span className="px-3 text-xs font-bold text-primary">{quantity}</span>
-                            <button 
-                              onClick={() => updateQuantity(product.id, 1)}
-                              className="p-1.5 text-primary hover:bg-surface-dim transition-colors cursor-pointer"
-                              aria-label="Increase quantity"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          <span className="text-[10px] text-red-700 bg-red-50 border border-red-200/60 font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
-                            50% OFF
+                          <span className="text-[10px] text-outline line-through font-medium">
+                            ₹ {product.lastPrice.toLocaleString('en-IN')}
                           </span>
                         </div>
                       </div>
+
+                      {/* Quantity Selector */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex items-center border border-outline-variant/60 rounded-lg bg-surface">
+                          <button
+                            onClick={() => updateQuantity(product.id, -1)}
+                            className="p-1 text-primary hover:bg-surface-dim transition-colors rounded-l cursor-pointer"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="px-2.5 text-xs font-bold text-primary">{quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(product.id, 1)}
+                            className="p-1 text-primary hover:bg-surface-dim transition-colors rounded-r cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <span className="text-xs font-bold text-primary ml-auto">
+                          ₹ {(product.price * quantity).toLocaleString('en-IN')}
+                        </span>
+                      </div>
                     </div>
-                  );
-                })
+                  </div>
+                ))
               )}
             </div>
 
-            {/* Cart Footer & Checkout */}
+            {/* Cart Footer */}
             {cartItems.length > 0 && (
-              <div className="p-6 border-t border-outline-variant/30 bg-surface-container flex flex-col gap-4">
-                {/* Bouquet Packaging Option (Semi-transparent until 3 or more items) */}
+              <div className="p-6 border-t border-outline-variant/30 bg-surface-container space-y-4">
+                {/* Bouquet Packaging Option */}
                 <div 
-                  className={`p-3.5 rounded-xl border transition-all duration-300 ${
+                  className={`p-3 rounded-xl border transition-all ${
                     totalCartCount >= 3 
                       ? 'bg-amber-500/10 border-amber-400/50 shadow-xs cursor-pointer' 
                       : 'bg-surface-container-high/60 border-outline-variant/30 opacity-40 cursor-not-allowed select-none'
@@ -1240,7 +1456,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer - NOTICE: Strictly NO links or buttons to /add here */}
       <footer className="mt-auto w-full bg-surface-container border-t border-outline-variant/30 py-16 px-6 md:px-12 text-center md:text-left">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="col-span-1 md:col-span-2 flex flex-col gap-3">
@@ -1258,7 +1474,7 @@ export default function App() {
           </div>
           <div className="flex flex-col gap-3 items-center md:items-start">
             <h4 className="text-xs font-bold uppercase tracking-[0.15em] text-primary mb-2">Shop Categories</h4>
-            {CATEGORIES.map(cat => (
+            {navCategories.map(cat => (
               <button
                 key={cat}
                 onClick={() => {
